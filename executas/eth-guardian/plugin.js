@@ -16,3 +16,11 @@ rl.on("line", (raw) => {
   if (req.method === "describe") send({ jsonrpc: "2.0", id: req.id, result: MANIFEST });
   else send({ jsonrpc: "2.0", id: req.id, error: { code: -32601, message: "method not found" } });
 });
+
+// State persistence
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { createHash } = require("node:crypto");
+const STATE_DIR = path.join(os.homedir(), ".anna", "eth-guardian");
+const STATE_FILE = path.join(STATE_DIR, "state.json");
