@@ -96,7 +96,13 @@ Set `SEPOLIA_RPC_URL` in `.env` or export it before launching Anna:
 export SEPOLIA_RPC_URL="https://sepolia.infura.io/v3/YOUR_KEY"
 ```
 
-Run a browser preview of the UI without Anna installed:
+Run the app locally. If the Anna developer CLI is installed, this launches Anna app dev mode. If not, it falls back to the browser preview:
+
+```bash
+npm run dev
+```
+
+Run a browser preview of the UI directly:
 
 ```bash
 npm run dev:preview
@@ -110,10 +116,10 @@ http://127.0.0.1:4173
 
 The preview mode uses an in-browser mock of the guardian tools so reviewers can click through the policy check, risk explainer, live verifier, approval queue, and history flow without needing a live Anna desktop runtime.
 
-Run the full Anna app when the Anna developer CLI is installed:
+Run the full Anna app explicitly when the Anna developer CLI is installed:
 
 ```bash
-npm run dev
+npm run dev:anna
 ```
 
 Smoke-test command for the bundled Executa plugin:

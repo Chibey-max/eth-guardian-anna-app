@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node test/plugin.test.js",
     "test:plugin": "node test/plugin.test.js",
-    "dev": "anna-app dev",
+    "dev": "node scripts/dev.js",
+    "dev:anna": "anna-app dev",
     "dev:preview": "python3 -m http.server 4173 -d bundle"
   },
   "engines": { "node": ">=18.0.0" }
