@@ -1,4 +1,9 @@
-{"role":"user","content":"The agent wants to upgrade the proxy contract. Calldata: 0x3659cfe6000000000000000000000000deadbeef1234567890abcdef1234567890abcdef"}
-{"role":"assistant","content":"Checking policy before anything else…"}
-{"role":"tool","tool_id":"bundled:eth-guardian","method":"check_policy","args":{"to":"0xSomeProxyContract","calldata":"0x3659cfe6000000000000000000000000deadbeef1234567890abcdef1234567890abcdef","value_wei":"0"},"result":{"success":true,"data":{"verdict":"DENY","selector":{"selector":"0x3659cfe6","known":true,"name":"upgradeTo(address)","protocol":"Proxy","risk":"critical"},"denials":["Selector upgradeTo(address) is classified as CRITICAL risk (Proxy). Blocked by guardian policy."],"warnings":[]}}}
-{"role":"assistant","content":"**DENY** — blocked. The agent was trying to call `upgradeTo(address)` on a proxy contract, which replaces the contract's logic entirely. ETH Guardian classifies this as CRITICAL risk and blocks it by default. If you intended this, you'll need to explicitly approve it through the approval gate."}
+{"t":0,"kind":"meta","harness_version":"0.1","session_id":"dev-session","window_uuid":"dev-wid"}
+{"t":1,"kind":"req","id":1,"ns":"window","method":"hello","args":{}}
+{"t":2,"kind":"res","id":1,"ok":true,"result":{"wid":"dev-wid","user_id":1}}
+{"t":10,"kind":"req","id":2,"ns":"tools","method":"invoke","args":{"tool_id":"tool-0xdave-eth-guardian-00000000","method":"check_policy","args":{"to":"0xSomeProxy","calldata":"0x3659cfe6","value_wei":"0"}}}
+{"t":11,"kind":"res","id":2,"ok":true,"result":{"success":true,"data":{"verdict":"DENY","selector":{"selector":"0x3659cfe6","known":true,"name":"upgradeTo(address)","protocol":"Proxy","risk":"critical"},"denials":["Selector upgradeTo(address) is classified as CRITICAL risk (Proxy). Blocked by guardian policy."],"warnings":[]}}}
+{"t":20,"kind":"req","id":3,"ns":"tools","method":"invoke","args":{"tool_id":"tool-0xdave-eth-guardian-00000000","method":"request_approval","args":{"action":"submit","to":"0xSomeProxy","description":"Proxy upgrade attempt blocked by guardian","risk_level":"critical"}}}
+{"t":21,"kind":"res","id":3,"ok":true,"result":{"success":true,"data":{"request_id":"a1b2c3d4","status":"pending","message":"Approval request submitted. Risk level: CRITICAL."}}}
+{"t":30,"kind":"req","id":4,"ns":"tools","method":"invoke","args":{"tool_id":"tool-0xdave-eth-guardian-00000000","method":"request_approval","args":{"action":"deny","request_id":"a1b2c3d4"}}}
+{"t":31,"kind":"res","id":4,"ok":true,"result":{"success":true,"data":{"decision":"denied","request_id":"a1b2c3d4"}}}
