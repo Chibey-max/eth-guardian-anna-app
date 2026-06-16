@@ -1,0 +1,72 @@
+{
+  "schema": 2,
+  "permissions": [
+    "tools.invoke",
+    "chat.write_message",
+    "storage.read",
+    "storage.write",
+    "ui.svg"
+  ],
+  "required_executas": [
+    {
+      "tool_id": "bundled:eth-guardian",
+      "min_version": "1.0.0",
+      "version": "latest"
+    },
+    {
+      "tool_id": "bundled:eth-safety",
+      "version": "latest"
+    }
+  ],
+  "optional_executas": [],
+  "system_prompt_addendum": "The user has the ETH Guardian app open. You are the human-in-the-loop safety layer for their autonomous Ethereum agent. Always call the eth-guardian Executa before commenting on any transaction: use method='check_policy' to validate against guardian rules, method='explain_risk' to translate calldata to plain English, and method='get_status' before summarizing guardian state. Never approve transactions on the user's behalf without explicit confirmation. Follow the ETH Safety Guardian skill for tone and workflow.",
+  "user_message_prefix_template": "[ETH Guardian] {user_message}",
+  "tags": ["ethereum", "defi", "safety", "guardian", "agent", "web3", "developer-tools"],
+  "ui": {
+    "bundle": {
+      "format": "static-spa",
+      "entry": "index.html",
+      "external_origins": [
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com"
+      ]
+    },
+    "views": [
+      {
+        "name": "main",
+        "title": "ETH Guardian",
+        "default": true,
+        "entry": "index.html",
+        "min_size":     { "w": 380, "h": 560 },
+        "default_size": { "w": 520, "h": 720 },
+        "max_size":     { "w": 800, "h": 1000 },
+        "resizable": true,
+        "movable": true,
+        "single_instance": true,
+        "icon": "icon.svg"
+      }
+    ],
+    "host_api": {
+      "tools":   ["required:bundled:eth-guardian"],
+      "chat":    ["write_message"],
+      "artifact": [],
+      "llm":     [],
+      "fs":      [],
+      "storage": ["get", "set"],
+      "prefs":   [],
+      "window":  ["set_title"]
+    },
+    "csp_overrides": {
+      "img-src":    ["'self'", "data:", "blob:"],
+      "font-src":   ["'self'", "data:", "https://fonts.gstatic.com"],
+      "style-src":  ["'self'", "https://fonts.googleapis.com"],
+      "script-src": ["'self'"]
+    },
+    "state_merge": "last_writer_wins"
+  },
+  "dev": {
+    "fixtures":    ["fixtures/*.jsonl"],
+    "seed_storage": {},
+    "user_id": 1
+  }
+}

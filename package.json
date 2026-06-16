@@ -1,0 +1,11 @@
+{
+  "name": "eth-guardian-anna-app",
+  "version": "1.0.0",
+  "description": "ETH Guardian — Anna AI-Native App for autonomous Ethereum agent safety",
+  "private": true,
+  "scripts": {
+    "test:plugin": "node -e \"const p=require('child_process').spawn('node',['executas/eth-guardian/plugin.js']);p.stdout.on('data',d=>console.log('OUT:',d.toString().trim()));p.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'describe',id:1})+'\\n');setTimeout(()=>p.kill(),1000);\"",
+    "dev": "anna-app dev"
+  },
+  "engines": { "node": ">=18.0.0" }
+}
