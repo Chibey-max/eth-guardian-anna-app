@@ -32,7 +32,7 @@ const MANIFEST = {
     "Validates transactions against guardian policies, explains on-chain " +
     "risk in plain English, and gates sensitive operations behind human approval.",
   author: "0x_Dave",
-  homepage: "https://github.com/Chibey-max/Ethereum-Agentic",
+  homepage: "https://github.com/Chibey-max/eth-guardian-anna-app",
   license: "MIT",
   tags: ["ethereum", "defi", "safety", "guardian", "agent", "web3"],
   tools: [
