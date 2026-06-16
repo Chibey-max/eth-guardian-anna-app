@@ -1,0 +1,10 @@
+{
+  "name": "tool-0xdave-eth-guardian",
+  "version": "1.0.0",
+  "description": "ETH Guardian — Control & Safety Layer for autonomous Ethereum agents (Anna Executa plugin)",
+  "bin": {
+    "tool-0xdave-eth-guardian-00000000": "./plugin.js"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "license": "MIT"
+}

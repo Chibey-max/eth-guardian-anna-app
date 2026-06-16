@@ -1,0 +1,6 @@
+{
+  "tool_id": "tool-0xdave-eth-guardian-00000000",
+  "type": "node",
+  "enabled": true,
+  "_comment": "Replace tool_id with the server-minted ID from anna.partners/executa after publishing. The placeholder above is for local anna-app dev only."
+}
