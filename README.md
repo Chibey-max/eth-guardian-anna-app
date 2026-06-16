@@ -10,6 +10,17 @@ ETH Guardian gives an autonomous Ethereum agent a control layer before it sends 
 - **Track fit:** AI-native workflow, developer tools, AI agents, productivity, human review
 - **Repository:** https://github.com/Chibey-max/eth-guardian-anna-app
 - **Project type:** Shareable Anna app with bundled Executa tool and skill workflow
+- **DoraHacks page:** https://dorahacks.io/hackathon/2204/detail
+- **Anna developer docs:** https://anna.partners/developers
+
+## Submission links
+
+- Project artifact: https://github.com/Chibey-max/eth-guardian-anna-app
+- Anna Developer Hub: https://anna.partners/developers
+- Anna docs manifest for AI agents: https://anna.partners/llms.txt
+- DoraHacks hackathon page: https://dorahacks.io/hackathon/2204/detail
+- Reference video 1: https://www.youtube.com/watch?v=GL2JD6pLZ78&t=23s
+- Reference video 2: https://www.youtube.com/watch?v=-UUcczhYPgE&t=1s
 
 ## What it does
 
@@ -42,12 +53,21 @@ Anna is not just a chatbot wrapper here. The app uses Anna as the coordination l
 
 ## Fit with Anna
 
-ETH Guardian uses the Anna app model directly:
+ETH Guardian uses Anna's three building blocks directly: Tools, Skills, and Apps.
 
-- `manifest.json` declares the app UI, permissions, bundled Executas, and host APIs.
-- `executas/eth-guardian/plugin.js` exposes the runtime tool surface over JSON-RPC stdio.
+- `manifest.json` declares the Anna App UI, permissions, bundled Executas, behavior, and host APIs.
+- `executas/eth-guardian/plugin.js` exposes the runtime tool surface over JSON-RPC 2.0 on stdio.
 - `skills/eth-safety/SKILL.md` defines the conversational workflow and hard safety rules.
-- `bundle/` contains the static app interface loaded by Anna.
+- `bundle/` contains the embedded HTML, CSS, and JavaScript interface loaded by Anna.
+- The app can be mentioned in chat as `#eth-guardian`, giving the conversation access to the UI, tool, and safety workflow together.
+
+## Judging criteria fit
+
+- **Usefulness and user value:** gives developers a practical safety layer for autonomous Ethereum agents.
+- **Working demo:** includes a static Anna UI, runnable Executa plugin, local smoke test, and demo fixtures.
+- **Meaningful use of AI:** Anna coordinates policy checks, risk explanations, approval workflow, and chat-visible decisions.
+- **Fit with Anna:** uses Anna app manifests, bundled Executa tools, SKILL.md behavior, storage, chat, and embedded UI.
+- **Creativity and execution:** applies AI-native app patterns to a high-stakes web3 workflow where human review matters.
 
 ## Run locally
 
