@@ -1,7 +1,7 @@
 /**
  * ETH Guardian — Anna App bundle controller
  *
- * Connects to Anna via the runtime SDK.
+ * Connects to Anna via the runtime SDK when available.
  * RPC shapes used:
  *   anna.tools.invoke({ tool_id, method, args })
  *   anna.storage.get({ key })
@@ -9,8 +9,6 @@
  *   anna.chat.write_message({ role, content })
  *   anna.window.set_title({ title })
  */
-
-import { AnnaAppRuntime } from "/static/anna-apps/_sdk/latest/index.js";
 
 // ── Tool ID resolution ──────────────────────────────────────────────────────
 const DEV_TOOL_ID = "tool-0xdave-eth-guardian-00000000";
@@ -88,11 +86,18 @@ const els = {
 
 let anna = null;
 let isCalling = false;
+const previewState = {
+  totalCalls: 0,
+  deniedCalls: 0,
+  pending: [],
+  history: [],
+};
 
 // ── Anna connection ─────────────────────────────────────────────────────────
 async function init() {
   bindUI();
   try {
+    const { AnnaAppRuntime } = await import("/static/anna-apps/_sdk/latest/index.js");
     anna = await AnnaAppRuntime.connect();
     setConnected(true);
     const savedView = await safeStorageGet(STORAGE_KEY_VIEW);
@@ -113,10 +118,183 @@ function setConnected(ok) {
 
 // ── Tool invocation ─────────────────────────────────────────────────────────
 async function callTool(method, args) {
-  if (!anna) throw new Error("Anna runtime not connected");
+  if (!anna) return callPreviewTool(method, args);
   const result = await anna.tools.invoke({ tool_id: TOOL_ID, method, args });
   if (!result.success) throw new Error(result.error || "Tool call failed");
   return result.data;
+}
+
+function callPreviewTool(method, args = {}) {
+  switch (method) {
+    case TOOL_METHOD_CHECK:
+      return previewCheckPolicy(args);
+    case TOOL_METHOD_EXPLAIN:
+      return previewExplainRisk(args);
+    case TOOL_METHOD_APPROVE:
+      return previewApproval(args);
+    case TOOL_METHOD_STATUS:
+      return previewStatus();
+    default:
+      throw new Error(`Preview tool not implemented: ${method}`);
+  }
+}
+
+function previewSelector(calldata = "0x") {
+  const selector = calldata.length >= 10 ? calldata.slice(0, 10).toLowerCase() : null;
+  const known = {
+    "0xa9059cbb": { name: "transfer(address,uint256)", protocol: "ERC-20", risk: "low" },
+    "0x23b872dd": { name: "transferFrom(address,address,uint256)", protocol: "ERC-20", risk: "medium" },
+    "0x095ea7b3": { name: "approve(address,uint256)", protocol: "ERC-20", risk: "high" },
+    "0x3659cfe6": { name: "upgradeTo(address)", protocol: "Proxy", risk: "critical" },
+    "0xf2fde38b": { name: "transferOwnership(address)", protocol: "Ownable", risk: "critical" },
+    "0x715018a6": { name: "renounceOwnership()", protocol: "Ownable", risk: "critical" },
+  };
+  if (!selector) return { selector: null, known: false, name: "plain ETH transfer", protocol: "Native", risk: "low" };
+  return known[selector] ? { selector, known: true, ...known[selector] } : { selector, known: false, name: "unknown function", protocol: "Unknown", risk: "medium" };
+}
+
+function previewIsUnlimitedApproval(calldata, selInfo) {
+  return selInfo.selector === "0x095ea7b3" && calldata.length > 10 && calldata.slice(-64).replace(/f/gi, "").length === 0;
+}
+
+function previewCheckPolicy(args) {
+  const calldata = args.calldata || "0x";
+  const valueWei = BigInt(args.value_wei || "0");
+  const selInfo = previewSelector(calldata);
+  const denials = [];
+  const warnings = [];
+
+  if (valueWei > 1000000000000000000n) {
+    denials.push("ETH value exceeds preview policy maximum of 1 ETH.");
+  } else if (valueWei > 100000000000000000n) {
+    warnings.push("Value exceeds preview approval threshold of 0.1 ETH. Human approval recommended.");
+  }
+  if (previewIsUnlimitedApproval(calldata, selInfo)) {
+    denials.push("Unlimited ERC-20 approval detected. This grants ongoing spending rights and is blocked by guardian policy.");
+  } else if (selInfo.risk === "critical") {
+    denials.push(`Selector ${selInfo.name} is classified as CRITICAL risk and is blocked by guardian policy.`);
+  } else if (selInfo.risk === "high") {
+    warnings.push(`Selector ${selInfo.name} is HIGH risk. Review carefully before approving.`);
+  }
+
+  previewState.totalCalls += 1;
+  if (denials.length) previewState.deniedCalls += 1;
+
+  return {
+    verdict: denials.length ? "DENY" : "ALLOW",
+    selector: selInfo,
+    denials,
+    warnings,
+    policy_snapshot: {
+      max_eth_value_wei: "1000000000000000000",
+      require_approval_above_wei: "100000000000000000",
+      whitelisted_targets_count: 0,
+      whitelisted_selectors_count: 0,
+    },
+    checked_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+function previewExplainRisk(args) {
+  const calldata = args.calldata || "0x";
+  const selInfo = previewSelector(calldata);
+  const valueEth = Number(BigInt(args.value_wei || "0")) / 1e18;
+  let risk = selInfo.risk || "low";
+  const flags = [];
+
+  if (previewIsUnlimitedApproval(calldata, selInfo)) {
+    risk = "critical";
+    flags.push("Unlimited token approval detected - grants ongoing spending rights.");
+  }
+  if (!selInfo.known && selInfo.selector) flags.push(`Unknown function selector ${selInfo.selector}.`);
+  if (valueEth > 1 && risk !== "critical") risk = "high";
+  if (valueEth > 0.1 && risk === "low") risk = "medium";
+
+  return {
+    summary: `Preview mode: this transaction calls ${selInfo.name} on ${selInfo.protocol}. Overall risk: ${risk.toUpperCase()}.`,
+    chain: "Ethereum Mainnet",
+    target: args.to,
+    function: selInfo.name,
+    protocol: selInfo.protocol,
+    risk_level: risk,
+    value_eth: valueEth.toFixed(6),
+    risk_flags: flags,
+    selector: selInfo.selector,
+    explained_at: Math.floor(Date.now() / 1000),
+  };
+}
+
+function previewApproval(args) {
+  const action = args.action || "submit";
+  if (action === "list") {
+    return {
+      pending: previewState.pending,
+      pending_count: previewState.pending.length,
+      recent_history: previewState.history.slice(0, 5),
+    };
+  }
+  if (action === "approve" || action === "deny") {
+    const idx = previewState.pending.findIndex((item) => item.request_id === args.request_id);
+    if (idx === -1) throw new Error(`No pending request found with id ${args.request_id}.`);
+    const entry = previewState.pending.splice(idx, 1)[0];
+    const record = {
+      ...entry,
+      decision: action === "approve" ? "approved" : "denied",
+      decided_at: Math.floor(Date.now() / 1000),
+    };
+    previewState.history.unshift(record);
+    return record;
+  }
+  const entry = {
+    request_id: `demo${String(previewState.pending.length + 1).padStart(2, "0")}`,
+    to: args.to,
+    calldata: args.calldata || "0x",
+    value_wei: args.value_wei || "0",
+    description: args.description || "Preview approval request",
+    risk_level: args.risk_level || "medium",
+    submitted_at: Math.floor(Date.now() / 1000),
+    status: "pending",
+  };
+  previewState.pending.push(entry);
+  return {
+    request_id: entry.request_id,
+    status: "pending",
+    message: "Preview approval request submitted.",
+    submitted_at: entry.submitted_at,
+  };
+}
+
+function previewStatus() {
+  return {
+    guardian: {
+      policy: {
+        max_eth_value_wei: "1000000000000000000",
+        whitelisted_tokens: [],
+        whitelisted_selectors: [],
+        whitelisted_targets: [],
+        require_approval_above_wei: "100000000000000000",
+        timelock_seconds: 0,
+        allow_unknown_selectors: false,
+        updated_at: Math.floor(Date.now() / 1000),
+      },
+      pending_approvals: previewState.pending.length,
+      pending_queue: previewState.pending,
+    },
+    agent_role: {
+      enabled: true,
+      last_active: previewState.totalCalls ? Math.floor(Date.now() / 1000) : null,
+      total_calls: previewState.totalCalls,
+      denied_calls: previewState.deniedCalls,
+    },
+    stats: {
+      total_calls: previewState.totalCalls,
+      denied_calls: previewState.deniedCalls,
+      approval_rate: previewState.totalCalls
+        ? (((previewState.totalCalls - previewState.deniedCalls) / previewState.totalCalls) * 100).toFixed(1) + "%"
+        : "N/A",
+    },
+    recent_decisions: previewState.history.slice(0, 10),
+  };
 }
 
 // ── Status refresh ──────────────────────────────────────────────────────────

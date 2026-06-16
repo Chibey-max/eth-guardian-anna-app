@@ -69,20 +69,40 @@ ETH Guardian uses Anna's three building blocks directly: Tools, Skills, and Apps
 - **Fit with Anna:** uses Anna app manifests, bundled Executa tools, SKILL.md behavior, storage, chat, and embedded UI.
 - **Creativity and execution:** applies AI-native app patterns to a high-stakes web3 workflow where human review matters.
 
-## Run locally
+## Run and verify
 
 Requirements:
 
 - Node.js 18 or newer
-- Anna developer tooling with `anna-app dev`
+- Anna developer tooling with `anna-app dev` for the full Anna runtime
 
-Install dependencies if needed, then run:
+Run the automated Executa test suite:
+
+```bash
+npm test
+```
+
+Run a browser preview of the UI without Anna installed:
+
+```bash
+npm run dev:preview
+```
+
+Then open:
+
+```text
+http://127.0.0.1:4173
+```
+
+The preview mode uses an in-browser mock of the guardian tools so reviewers can click through the policy check, risk explainer, approval queue, and history flow without needing a live Anna desktop runtime.
+
+Run the full Anna app when the Anna developer CLI is installed:
 
 ```bash
 npm run dev
 ```
 
-Smoke-test the bundled Executa plugin:
+Smoke-test command for the bundled Executa plugin:
 
 ```bash
 npm run test:plugin
@@ -96,6 +116,17 @@ npm run test:plugin
 4. Run **Explain Risk** to translate the calldata into a plain-English summary.
 5. Submit a sensitive action to the approval queue.
 6. Approve or deny it from the pending queue.
+
+## Tested behavior
+
+The automated test suite starts the Executa plugin as a long-running JSON-RPC process and verifies:
+
+- `describe` returns the ETH Guardian manifest and tool list.
+- `check_policy` blocks unlimited ERC-20 approvals.
+- `explain_risk` marks unlimited approval as `critical`.
+- `request_approval` can submit, list, and approve pending requests.
+- `get_status` returns decision history.
+- `health` returns an active state file path.
 
 ## Example safety checks
 
@@ -125,8 +156,8 @@ ETH Guardian currently recognizes and flags:
 
 ## Privacy
 
-ETH Guardian stores local guardian state under the user's home directory at `~/.anna/eth-guardian/state.json`. The app does not include private keys, seed phrases, or signing logic. It is a review and approval layer, not a wallet.
+ETH Guardian stores local guardian state under the user's home directory at `~/.anna/eth-guardian/state.json`. If that location is not writable, it falls back to a temporary directory so demos do not fail in restricted environments. The app does not include private keys, seed phrases, or signing logic. It is a review and approval layer, not a wallet.
 
 ## Current status
 
-This is a hackathon prototype. It is built to demonstrate the workflow and app integration clearly. Before production use, it should be connected to live ABI decoding, stronger policy configuration, chain-aware token metadata, and a real wallet or agent execution environment.
+This is a hackathon prototype, not a production wallet. It intentionally does not sign or send transactions. Before production use, it should be connected to live ABI decoding, stronger policy configuration, chain-aware token metadata, transaction simulation, and a real wallet or agent execution environment.
