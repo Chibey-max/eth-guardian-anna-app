@@ -2,7 +2,7 @@
 
 Human-in-the-loop safety for autonomous Ethereum agents, built as an Anna AI-Native App for the Anna AI-Native App Hackathon.
 
-ETH Guardian gives an autonomous Ethereum agent a control layer before it sends transactions. It validates proposed calls against policy rules, explains calldata in plain English, and routes sensitive actions into a human approval queue inside Anna.
+ETH Guardian gives an autonomous Ethereum agent a control layer before it sends transactions. It validates proposed calls against policy rules, explains calldata in plain English, performs read-only Sepolia/RPC verification when configured, and routes sensitive actions into a human approval queue inside Anna.
 
 ## Hackathon submission
 
@@ -33,9 +33,9 @@ ETH Guardian is designed for developers running autonomous trading, yield, treas
 
 The project includes:
 
-- `eth-guardian` Executa plugin with four tools: `check_policy`, `explain_risk`, `request_approval`, and `get_status`.
+- `eth-guardian` Executa plugin with five tools: `check_policy`, `explain_risk`, `verify_onchain`, `request_approval`, and `get_status`.
 - `eth-safety` skill that tells Anna how to reason about transaction safety and approval flow.
-- Static Anna app UI with dashboard, policy checker, risk explainer, pending queue, policy view, and history view.
+- Static Anna app UI with dashboard, policy checker, risk explainer, live verification panel, pending queue, policy view, and history view.
 - Demo fixtures for happy-path and critical-deny workflows.
 
 ## Why it matters
@@ -48,6 +48,7 @@ Anna is not just a chatbot wrapper here. The app uses Anna as the coordination l
 
 - Anna calls `check_policy` before commenting on a transaction.
 - Anna calls `explain_risk` to translate low-level calldata into a concise risk summary.
+- Anna calls `verify_onchain` for read-only Sepolia/RPC verification when an RPC URL is configured.
 - Anna uses the `eth-safety` skill to follow a consistent approval protocol.
 - Anna writes approval events back into the conversation so decisions stay visible.
 
@@ -64,7 +65,7 @@ ETH Guardian uses Anna's three building blocks directly: Tools, Skills, and Apps
 ## Judging criteria fit
 
 - **Usefulness and user value:** gives developers a practical safety layer for autonomous Ethereum agents.
-- **Working demo:** includes a static Anna UI, runnable Executa plugin, local smoke test, and demo fixtures.
+- **Working demo:** includes a static Anna UI, runnable Executa plugin, local preview, automated tests, and demo fixtures.
 - **Meaningful use of AI:** Anna coordinates policy checks, risk explanations, approval workflow, and chat-visible decisions.
 - **Fit with Anna:** uses Anna app manifests, bundled Executa tools, SKILL.md behavior, storage, chat, and embedded UI.
 - **Creativity and execution:** applies AI-native app patterns to a high-stakes web3 workflow where human review matters.
@@ -75,11 +76,24 @@ Requirements:
 
 - Node.js 18 or newer
 - Anna developer tooling with `anna-app dev` for the full Anna runtime
+- Optional Sepolia RPC endpoint for live read-only checks
 
 Run the automated Executa test suite:
 
 ```bash
 npm test
+```
+
+Configure live Sepolia verification:
+
+```bash
+cp .env.example .env
+```
+
+Set `SEPOLIA_RPC_URL` in `.env` or export it before launching Anna:
+
+```bash
+export SEPOLIA_RPC_URL="https://sepolia.infura.io/v3/YOUR_KEY"
 ```
 
 Run a browser preview of the UI without Anna installed:
@@ -94,7 +108,7 @@ Then open:
 http://127.0.0.1:4173
 ```
 
-The preview mode uses an in-browser mock of the guardian tools so reviewers can click through the policy check, risk explainer, approval queue, and history flow without needing a live Anna desktop runtime.
+The preview mode uses an in-browser mock of the guardian tools so reviewers can click through the policy check, risk explainer, live verifier, approval queue, and history flow without needing a live Anna desktop runtime.
 
 Run the full Anna app when the Anna developer CLI is installed:
 
@@ -114,8 +128,9 @@ npm run test:plugin
 2. Paste a transaction target and calldata into **Check Transaction**.
 3. Run **Check Policy** to get `ALLOW` or `DENY`.
 4. Run **Explain Risk** to translate the calldata into a plain-English summary.
-5. Submit a sensitive action to the approval queue.
-6. Approve or deny it from the pending queue.
+5. Run **Verify On-Chain** to check Sepolia chain ID, target code, target balance, allowance context, and `eth_call` simulation.
+6. Submit a sensitive action to the approval queue.
+7. Approve or deny it from the pending queue.
 
 ## Tested behavior
 
@@ -124,6 +139,7 @@ The automated test suite starts the Executa plugin as a long-running JSON-RPC pr
 - `describe` returns the ETH Guardian manifest and tool list.
 - `check_policy` blocks unlimited ERC-20 approvals.
 - `explain_risk` marks unlimited approval as `critical`.
+- `verify_onchain` reads chain ID, contract code, ETH balance, allowance context, and `eth_call` simulation from a mock Sepolia RPC server.
 - `request_approval` can submit, list, and approve pending requests.
 - `get_status` returns decision history.
 - `health` returns an active state file path.
@@ -141,6 +157,10 @@ ETH Guardian currently recognizes and flags:
 - Unknown function selectors
 - ETH value thresholds
 - Whitelisted targets, selectors, and tokens
+- Sepolia/RPC chain ID checks
+- Target contract code and balance checks
+- ERC-20 approval spender and current allowance reads
+- Read-only `eth_call` simulation
 
 ## Repository structure
 
@@ -156,8 +176,8 @@ ETH Guardian currently recognizes and flags:
 
 ## Privacy
 
-ETH Guardian stores local guardian state under the user's home directory at `~/.anna/eth-guardian/state.json`. If that location is not writable, it falls back to a temporary directory so demos do not fail in restricted environments. The app does not include private keys, seed phrases, or signing logic. It is a review and approval layer, not a wallet.
+ETH Guardian stores local guardian state under the user's home directory at `~/.anna/eth-guardian/state.json`. If that location is not writable, it falls back to a temporary directory so demos do not fail in restricted environments. The app does not include private keys, seed phrases, or signing logic. Sepolia RPC access is read-only. It is a review and approval layer, not a wallet.
 
 ## Current status
 
-This is a hackathon prototype, not a production wallet. It intentionally does not sign or send transactions. Before production use, it should be connected to live ABI decoding, stronger policy configuration, chain-aware token metadata, transaction simulation, and a real wallet or agent execution environment.
+This is a hackathon prototype, not a production wallet. It intentionally does not sign or send transactions. Before production use, it should be connected to live ABI decoding, stronger policy configuration, chain-aware token metadata, deeper transaction simulation, and a real wallet or agent execution environment.

@@ -4,6 +4,7 @@
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
+const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -14,9 +15,37 @@ const unlimitedApproval =
   "0000000000000000000000002222222222222222222222222222222222222222" +
   "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-function startPlugin() {
+function startRpcServer() {
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const message = JSON.parse(body);
+      let result = "0x";
+      if (message.method === "eth_chainId") result = "0xaa36a7";
+      if (message.method === "eth_getCode") result = "0x6001600055";
+      if (message.method === "eth_getBalance") result = "0xde0b6b3a7640000";
+      if (message.method === "eth_call") {
+        const data = message.params?.[0]?.data || "0x";
+        result = data.startsWith("0xdd62ed3e")
+          ? "0x000000000000000000000000000000000000000000000000000000000000000a"
+          : "0x";
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }));
+    });
+  });
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      resolve({ server, url: `http://127.0.0.1:${port}` });
+    });
+  });
+}
+
+function startPlugin(rpcUrl) {
   const child = spawn(process.execPath, [pluginPath], {
-    env: { ...process.env, ETH_GUARDIAN_STATE_DIR: stateDir },
+    env: { ...process.env, ETH_GUARDIAN_STATE_DIR: stateDir, SEPOLIA_RPC_URL: rpcUrl },
     stdio: ["pipe", "pipe", "pipe"],
   });
   const queue = [];
@@ -48,11 +77,12 @@ function startPlugin() {
 }
 
 async function main() {
-  const { child, request } = startPlugin();
+  const { server, url } = await startRpcServer();
+  const { child, request } = startPlugin(url);
   try {
     const describe = await request({ jsonrpc: "2.0", id: 1, method: "describe", params: {} });
     assert.equal(describe.result.display_name, "ETH Guardian");
-    assert.equal(describe.result.tools.length, 4);
+    assert.equal(describe.result.tools.length, 5);
 
     const policy = await request({
       jsonrpc: "2.0",
@@ -87,6 +117,30 @@ async function main() {
     });
     assert.equal(risk.result.success, true);
     assert.equal(risk.result.data.risk_level, "critical");
+
+    const onchain = await request({
+      jsonrpc: "2.0",
+      id: 9,
+      method: "invoke",
+      params: {
+        tool: "verify_onchain",
+        arguments: {
+          to: "0x1111111111111111111111111111111111111111",
+          from: "0x9999999999999999999999999999999999999999",
+          value_wei: "0",
+          calldata: unlimitedApproval,
+          chain_id: 11155111,
+        },
+      },
+    });
+    assert.equal(onchain.result.success, true);
+    assert.equal(onchain.result.data.live, true);
+    assert.equal(onchain.result.data.rpc_connected, true);
+    assert.equal(onchain.result.data.actual_chain_id, 11155111);
+    assert.equal(onchain.result.data.target_has_code, true);
+    assert.equal(onchain.result.data.target_balance_eth, "1.000000");
+    assert.equal(onchain.result.data.simulation.success, true);
+    assert.equal(onchain.result.data.allowance.current_allowance_raw, "10");
 
     const submitted = await request({
       jsonrpc: "2.0",
@@ -141,6 +195,7 @@ async function main() {
     assert.match(health.result.state_file, /state\.json$/);
   } finally {
     child.kill();
+    server.close();
     fs.rmSync(stateDir, { recursive: true, force: true });
   }
 }

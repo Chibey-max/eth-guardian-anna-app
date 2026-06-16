@@ -116,6 +116,43 @@
         <button class="btn btn-secondary" id="btn-explain">Explain Risk</button>
         <div class="result-box" id="explain-result" hidden></div>
       </div>
+
+      <!-- Live on-chain verifier panel -->
+      <div class="panel">
+        <div class="panel-title">
+          <span class="panel-label">LIVE ON-CHAIN VERIFY</span>
+          <span class="panel-tag">verify_onchain</span>
+        </div>
+        <div class="field-row">
+          <label class="field-label" for="live-to">Target address</label>
+          <input class="field-input font-mono" id="live-to" type="text" placeholder="0x…" spellcheck="false" />
+        </div>
+        <div class="field-row">
+          <label class="field-label" for="live-from">Agent / owner address</label>
+          <input class="field-input font-mono" id="live-from" type="text" placeholder="0x… optional" spellcheck="false" />
+        </div>
+        <div class="field-row field-row--half">
+          <div>
+            <label class="field-label" for="live-value">ETH value (wei)</label>
+            <input class="field-input font-mono" id="live-value" type="text" placeholder="0" />
+          </div>
+          <div>
+            <label class="field-label" for="live-chain">Chain ID</label>
+            <select class="field-input" id="live-chain">
+              <option value="11155111" selected>Sepolia (11155111)</option>
+              <option value="1">Mainnet (1)</option>
+              <option value="17000">Holesky (17000)</option>
+              <option value="8453">Base (8453)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <label class="field-label" for="live-calldata">Calldata</label>
+          <input class="field-input font-mono" id="live-calldata" type="text" placeholder="0x…" spellcheck="false" />
+        </div>
+        <button class="btn btn-secondary" id="btn-live">Verify On-Chain</button>
+        <div class="result-box" id="live-result" hidden></div>
+      </div>
     </section>
 
     <!-- ── PENDING VIEW ── -->

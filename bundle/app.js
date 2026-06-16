@@ -19,6 +19,7 @@ const TOOL_ID =
   DEV_TOOL_ID;
 const TOOL_METHOD_CHECK   = "check_policy";
 const TOOL_METHOD_EXPLAIN = "explain_risk";
+const TOOL_METHOD_VERIFY  = "verify_onchain";
 const TOOL_METHOD_APPROVE = "request_approval";
 const TOOL_METHOD_STATUS  = "get_status";
 const STORAGE_KEY_VIEW    = "eth-guardian:last-view";
@@ -52,6 +53,15 @@ const els = {
   explainChain:   $("explain-chain"),
   btnExplain:     $("btn-explain"),
   explainResult:  $("explain-result"),
+
+  // Live on-chain verification
+  liveTo:         $("live-to"),
+  liveFrom:       $("live-from"),
+  liveValue:      $("live-value"),
+  liveChain:      $("live-chain"),
+  liveCalldata:   $("live-calldata"),
+  btnLive:        $("btn-live"),
+  liveResult:     $("live-result"),
 
   // Pending
   approvalList:   $("approval-list"),
@@ -130,6 +140,8 @@ function callPreviewTool(method, args = {}) {
       return previewCheckPolicy(args);
     case TOOL_METHOD_EXPLAIN:
       return previewExplainRisk(args);
+    case TOOL_METHOD_VERIFY:
+      return previewVerifyOnchain(args);
     case TOOL_METHOD_APPROVE:
       return previewApproval(args);
     case TOOL_METHOD_STATUS:
@@ -137,6 +149,41 @@ function callPreviewTool(method, args = {}) {
     default:
       throw new Error(`Preview tool not implemented: ${method}`);
   }
+}
+
+function previewVerifyOnchain(args) {
+  const calldata = args.calldata || "0x";
+  const selInfo = previewSelector(calldata);
+  const approval = previewIsUnlimitedApproval(calldata, selInfo)
+    ? {
+        token: args.to,
+        owner: args.from || null,
+        spender: "0x2222222222222222222222222222222222222222",
+        approval_amount_raw: "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+        current_allowance_raw: args.from ? "0" : undefined,
+      }
+    : null;
+  return {
+    live: false,
+    rpc_connected: false,
+    expected_chain_id: parseInt(args.chain_id || "11155111", 10),
+    actual_chain_id: parseInt(args.chain_id || "11155111", 10),
+    chain_matches: true,
+    chain: "Sepolia Testnet",
+    target: args.to,
+    target_has_code: true,
+    target_code_size_bytes: 128,
+    target_balance_wei: "1000000000000000000",
+    target_balance_eth: "1.000000",
+    simulation: {
+      attempted: calldata !== "0x",
+      success: calldata !== "0x",
+      result: calldata !== "0x" ? "0x" : undefined,
+    },
+    allowance: approval,
+    warnings: ["Preview mode: configure SEPOLIA_RPC_URL in Anna runtime for live read-only RPC checks."],
+    checked_at: Math.floor(Date.now() / 1000),
+  };
 }
 
 function previewSelector(calldata = "0x") {
@@ -432,6 +479,74 @@ async function handleExplainRisk() {
   }
 }
 
+// ── Live on-chain verification ───────────────────────────────────────────────
+async function handleVerifyOnchain() {
+  if (isCalling) return;
+  const to = els.liveTo.value.trim();
+  const from = els.liveFrom.value.trim();
+  const calldata = els.liveCalldata.value.trim() || "0x";
+  const valueWei = els.liveValue.value.trim() || "0";
+  const chainId = parseInt(els.liveChain.value, 10);
+  if (!to) { toast("Enter a target address", "error"); return; }
+
+  setLoading(true);
+  els.liveResult.hidden = true;
+
+  try {
+    const data = await callTool(TOOL_METHOD_VERIFY, {
+      to,
+      from,
+      calldata,
+      value_wei: valueWei,
+      chain_id: chainId,
+    });
+    renderOnchainResult(data);
+  } catch (e) {
+    showError(els.liveResult, e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderOnchainResult(data) {
+  const box = els.liveResult;
+  const ok = data.rpc_connected && data.chain_matches && data.target_has_code;
+  box.className = `result-box ${ok ? "is-allow" : data.rpc_connected ? "is-warn" : "is-deny"}`;
+  box.hidden = false;
+
+  const verdict = data.rpc_connected ? (ok ? "LIVE VERIFIED" : "LIVE CHECK WARNING") : "PREVIEW / NO RPC";
+  let html = `<div class="result-verdict ${ok ? "verdict-allow" : "risk-medium"}">${verdict}</div>`;
+  html += `<div>Chain: <span style="color:var(--accent-cyan)">${escapeHtml(data.chain || "Unknown")}</span>`;
+  if (data.actual_chain_id) html += ` <span style="color:var(--text-muted)">(${data.actual_chain_id})</span>`;
+  html += `</div>`;
+  html += `<div>Target has code: <span class="${data.target_has_code ? "risk-low" : "risk-high"}">${data.target_has_code ? "Yes" : "No"}</span></div>`;
+  html += `<div>Code size: ${escapeHtml(data.target_code_size_bytes ?? 0)} bytes</div>`;
+  html += `<div>Target balance: <span class="font-mono">${escapeHtml(data.target_balance_eth || "0.000000")} ETH</span></div>`;
+
+  if (data.simulation?.attempted) {
+    html += `<div>eth_call: <span class="${data.simulation.success ? "risk-low" : "risk-high"}">${data.simulation.success ? "Success" : "Failed"}</span></div>`;
+    if (data.simulation.error) html += `<div style="color:var(--accent-red)">${escapeHtml(data.simulation.error)}</div>`;
+  } else {
+    html += `<div>eth_call: <span style="color:var(--text-muted)">Not needed for empty calldata/value</span></div>`;
+  }
+
+  if (data.allowance) {
+    html += `<div style="color:var(--accent-amber);margin-top:6px">Approval context:</div>`;
+    html += `<div>Spender: <span class="font-mono">${escapeHtml(data.allowance.spender || "N/A")}</span></div>`;
+    html += `<div>New amount: <span class="font-mono">${escapeHtml(data.allowance.approval_amount_raw || "0")}</span></div>`;
+    if (data.allowance.current_allowance_raw !== undefined) {
+      html += `<div>Current allowance: <span class="font-mono">${escapeHtml(data.allowance.current_allowance_raw)}</span></div>`;
+    }
+  }
+
+  if (data.warnings?.length) {
+    html += `<div style="color:var(--accent-amber);margin-top:6px">Warnings:</div>`;
+    data.warnings.forEach(w => { html += `<div>${escapeHtml(w)}</div>`; });
+  }
+
+  box.innerHTML = html;
+}
+
 function renderExplainResult(data) {
   const box = els.explainResult;
   const risk = data.risk_level || "low";
@@ -569,6 +684,7 @@ function renderHistory(history) {
 function bindUI() {
   els.btnCheck.addEventListener("click", handleCheckPolicy);
   els.btnExplain.addEventListener("click", handleExplainRisk);
+  els.btnLive.addEventListener("click", handleVerifyOnchain);
   els.btnSubmitApproval.addEventListener("click", handleSubmitApproval);
   els.btnRefreshPending.addEventListener("click", refreshPending);
   els.btnRefreshPolicy.addEventListener("click", refreshStatus);
@@ -606,7 +722,7 @@ async function safeStorageSet(key, value) {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function setLoading(on) {
   isCalling = on;
-  [els.btnCheck, els.btnExplain, els.btnSubmitApproval].forEach(b => {
+  [els.btnCheck, els.btnExplain, els.btnLive, els.btnSubmitApproval].forEach(b => {
     if (b) b.disabled = on;
   });
 }

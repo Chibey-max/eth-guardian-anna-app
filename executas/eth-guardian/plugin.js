@@ -3,9 +3,10 @@
  * eth-guardian — Executa stdio plugin (Node.js)
  *
  * Anna's Control & Safety Layer for autonomous Ethereum agents.
- * Exposes three tool methods:
+ * Exposes five tool methods:
  *   - eth.check_policy    → validate a tx/calldata against guardian rules
  *   - eth.explain_risk    → translate raw on-chain data to plain English
+ *   - eth.verify_onchain  → perform read-only Sepolia/RPC verification
  *   - eth.request_approval → surface a human-review gate (pending queue)
  *   - eth.get_status      → guardian/agent wallet state overview
  *
@@ -20,6 +21,28 @@ const os = require("node:os");
 const path = require("node:path");
 const readline = require("node:readline");
 const { createHash } = require("node:crypto");
+
+function loadEnvFile() {
+  const candidates = [
+    path.join(process.cwd(), ".env"),
+    path.join(__dirname, "..", "..", ".env"),
+  ];
+  for (const file of candidates) {
+    if (!fs.existsSync(file)) continue;
+    const lines = fs.readFileSync(file, "utf-8").split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+      const idx = trimmed.indexOf("=");
+      const key = trimmed.slice(0, idx).trim();
+      const value = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, "");
+      if (key && process.env[key] === undefined) process.env[key] = value;
+    }
+    return;
+  }
+}
+
+loadEnvFile();
 
 // ---------------------------------------------------------------------------
 // Plugin manifest
@@ -113,6 +136,56 @@ const MANIFEST = {
           description: "EVM chain ID (1=mainnet, 11155111=sepolia, etc).",
           required: false,
           default: 1,
+        },
+      ],
+    },
+    {
+      name: "verify_onchain",
+      description:
+        "Run read-only Ethereum RPC checks for a proposed transaction. " +
+        "Verifies chain ID, target contract code, target ETH balance, optional " +
+        "ERC-20 allowance context, and eth_call simulation without signing or sending.",
+      parameters: [
+        {
+          name: "to",
+          type: "string",
+          description: "Target contract or wallet address (0x...).",
+          required: true,
+        },
+        {
+          name: "calldata",
+          type: "string",
+          description: "Hex-encoded calldata (0x...).",
+          required: false,
+          default: "0x",
+        },
+        {
+          name: "value_wei",
+          type: "string",
+          description: "ETH value in wei for eth_call simulation.",
+          required: false,
+          default: "0",
+        },
+        {
+          name: "from",
+          type: "string",
+          description: "Optional sender/agent wallet address for simulation and allowance checks.",
+          required: false,
+          default: "",
+        },
+        {
+          name: "chain_id",
+          type: "integer",
+          description: "Expected chain ID. Defaults to Sepolia (11155111).",
+          required: false,
+          default: 11155111,
+        },
+        {
+          name: "rpc_url",
+          type: "string",
+          description: "Optional RPC URL override. Defaults to SEPOLIA_RPC_URL or RPC_URL env var.",
+          required: false,
+          default: "",
         },
       ],
     },
@@ -318,6 +391,60 @@ function isUnlimitedApproval(calldata, selInfo) {
   );
 }
 
+function isHexAddress(value) {
+  return typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
+}
+
+function normalizeHex(value, fallback = "0x") {
+  if (!value || typeof value !== "string") return fallback;
+  return value.startsWith("0x") ? value : `0x${value}`;
+}
+
+function weiToEthString(valueWei) {
+  const wei = BigInt(valueWei || "0");
+  const whole = wei / 1000000000000000000n;
+  const frac = (wei % 1000000000000000000n).toString().padStart(18, "0").slice(0, 6);
+  return `${whole}.${frac}`;
+}
+
+function quantityFromWei(valueWei) {
+  const wei = BigInt(valueWei || "0");
+  return `0x${wei.toString(16)}`;
+}
+
+function hexQuantityToDecimal(value) {
+  return BigInt(value || "0x0").toString(10);
+}
+
+function parseApprovalCalldata(calldata) {
+  const data = normalizeHex(calldata).toLowerCase();
+  if (!data.startsWith("0x095ea7b3") || data.length < 138) return null;
+  const spenderWord = data.slice(10, 74);
+  const amountWord = data.slice(74, 138);
+  return {
+    spender: `0x${spenderWord.slice(24)}`,
+    amount_raw: BigInt(`0x${amountWord}`).toString(10),
+  };
+}
+
+function encodeAllowanceCall(owner, spender) {
+  const ownerWord = owner.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+  const spenderWord = spender.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+  return `0xdd62ed3e${ownerWord}${spenderWord}`;
+}
+
+async function rpcCall(rpcUrl, method, params = []) {
+  const res = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: shortId(), method, params }),
+  });
+  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return data.result;
+}
+
 const CHAIN_NAMES = {
   1: "Ethereum Mainnet",
   11155111: "Sepolia Testnet",
@@ -479,6 +606,116 @@ function toolExplainRisk(args) {
   };
 }
 
+async function toolVerifyOnchain(args) {
+  const {
+    to,
+    calldata = "0x",
+    value_wei = "0",
+    from = "",
+    chain_id = 11155111,
+    rpc_url = "",
+  } = args;
+  const rpcUrl = rpc_url || process.env.SEPOLIA_RPC_URL || process.env.RPC_URL || "";
+  const warnings = [];
+
+  if (!rpcUrl) {
+    return {
+      live: false,
+      rpc_connected: false,
+      expected_chain_id: chain_id,
+      chain: CHAIN_NAMES[chain_id] || `Chain ${chain_id}`,
+      warnings: ["No RPC URL configured. Set SEPOLIA_RPC_URL or RPC_URL for live read-only checks."],
+      checked_at: now(),
+    };
+  }
+  if (!isHexAddress(to)) {
+    throw new Error("Invalid target address.");
+  }
+  if (from && !isHexAddress(from)) {
+    throw new Error("Invalid sender address.");
+  }
+
+  const normalizedCalldata = normalizeHex(calldata);
+  const [chainHex, code, balanceHex] = await Promise.all([
+    rpcCall(rpcUrl, "eth_chainId"),
+    rpcCall(rpcUrl, "eth_getCode", [to, "latest"]),
+    rpcCall(rpcUrl, "eth_getBalance", [to, "latest"]),
+  ]);
+  const actualChainId = Number(BigInt(chainHex));
+  const chainMatches = actualChainId === Number(chain_id);
+  if (!chainMatches) {
+    warnings.push(`RPC chain ${actualChainId} does not match expected chain ${chain_id}.`);
+  }
+
+  const tx = {
+    to,
+    data: normalizedCalldata,
+    value: quantityFromWei(value_wei),
+  };
+  if (from) tx.from = from;
+
+  let simulation = { attempted: normalizedCalldata !== "0x" || BigInt(value_wei || "0") > 0n };
+  if (simulation.attempted) {
+    try {
+      simulation = {
+        attempted: true,
+        success: true,
+        result: await rpcCall(rpcUrl, "eth_call", [tx, "latest"]),
+      };
+    } catch (err) {
+      simulation = {
+        attempted: true,
+        success: false,
+        error: err.message,
+      };
+      warnings.push(`eth_call simulation failed: ${err.message}`);
+    }
+  }
+
+  const approval = parseApprovalCalldata(normalizedCalldata);
+  let allowance = null;
+  if (approval) {
+    allowance = {
+      token: to,
+      owner: from || null,
+      spender: approval.spender,
+      approval_amount_raw: approval.amount_raw,
+    };
+    if (from) {
+      try {
+        const allowanceHex = await rpcCall(rpcUrl, "eth_call", [
+          { to, data: encodeAllowanceCall(from, approval.spender) },
+          "latest",
+        ]);
+        allowance.current_allowance_raw = hexQuantityToDecimal(allowanceHex);
+      } catch (err) {
+        allowance.error = err.message;
+        warnings.push(`Allowance read failed: ${err.message}`);
+      }
+    } else {
+      warnings.push("Approval calldata detected. Provide `from` to read current allowance.");
+    }
+  }
+
+  return {
+    live: true,
+    rpc_connected: true,
+    expected_chain_id: Number(chain_id),
+    actual_chain_id: actualChainId,
+    chain_matches: chainMatches,
+    chain: CHAIN_NAMES[actualChainId] || `Chain ${actualChainId}`,
+    target: to,
+    target_has_code: Boolean(code && code !== "0x"),
+    target_code_size_bytes: code && code !== "0x" ? Math.max(0, (code.length - 2) / 2) : 0,
+    target_balance_wei: hexQuantityToDecimal(balanceHex),
+    target_balance_eth: weiToEthString(hexQuantityToDecimal(balanceHex)),
+    simulation,
+    allowance,
+    warnings,
+    checked_at: now(),
+  };
+}
+
 function buildSummary(selInfo, valueEth, chainName, flags, risk) {
   const action =
     selInfo.known
@@ -606,6 +843,7 @@ function toolGetStatus(args) {
 const TOOL_DISPATCH = {
   check_policy: toolCheckPolicy,
   explain_risk: toolExplainRisk,
+  verify_onchain: toolVerifyOnchain,
   request_approval: toolRequestApproval,
   get_status: toolGetStatus,
 };
@@ -617,14 +855,14 @@ function handleDescribe() {
   return MANIFEST;
 }
 
-function handleInvoke(params) {
+async function handleInvoke(params) {
   const tool = params.tool;
   const args =
     params.arguments && typeof params.arguments === "object" ? params.arguments : {};
   const fn = TOOL_DISPATCH[tool];
   if (!fn) throw new Error(`unknown tool: ${JSON.stringify(tool)}`);
   try {
-    const payload = fn(args);
+    const payload = await fn(args);
     return { success: true, data: payload };
   } catch (err) {
     return { success: false, error: `${err.name}: ${err.message}` };
@@ -653,7 +891,7 @@ function main() {
     `[eth-guardian] ${MANIFEST.display_name} v${MANIFEST.version} ready\n`
   );
   const rl = readline.createInterface({ input: process.stdin });
-  rl.on("line", (raw) => {
+  rl.on("line", async (raw) => {
     const line = raw.trim();
     if (!line) return;
     let req;
@@ -672,7 +910,7 @@ function main() {
       return;
     }
     try {
-      const result = handler(params);
+      const result = await handler(params);
       send({ jsonrpc: "2.0", id: reqId, result });
     } catch (err) {
       send({ jsonrpc: "2.0", id: reqId, error: { code: -32000, message: err.message || String(err) } });
