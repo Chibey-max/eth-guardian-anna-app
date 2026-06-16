@@ -1,0 +1,7 @@
+{
+  "slug": "eth-safety",
+  "name": "ETH Safety Guardian",
+  "version": "1.0.0",
+  "executa_type": "skill",
+  "description": "Conversational protocol for the ETH Guardian Anna App — tone, risk-explanation style, approval workflow, and guardian tool interaction rules. Declarative skill defined in SKILL.md."
+}
