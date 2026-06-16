@@ -195,8 +195,12 @@ const MANIFEST = {
 // ---------------------------------------------------------------------------
 // State persistence
 // ---------------------------------------------------------------------------
-const STATE_DIR = path.join(os.homedir(), ".anna", "eth-guardian");
-const STATE_FILE = path.join(STATE_DIR, "state.json");
+const STATE_DIRS = [
+  process.env.ETH_GUARDIAN_STATE_DIR,
+  path.join(os.homedir(), ".anna", "eth-guardian"),
+  path.join(os.tmpdir(), "eth-guardian"),
+].filter(Boolean);
+let activeStateFile = path.join(STATE_DIRS[0], "state.json");
 
 function now() {
   return Math.floor(Date.now() / 1000);
@@ -231,27 +235,44 @@ const DEFAULT_STATE = () => ({
 });
 
 function loadState() {
-  if (!fs.existsSync(STATE_FILE)) return DEFAULT_STATE();
-  try {
-    const raw = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
-    const def = DEFAULT_STATE();
-    return {
-      policy: { ...def.policy, ...(raw.policy || {}) },
-      pending: raw.pending || [],
-      history: raw.history || [],
-      agent_role: { ...def.agent_role, ...(raw.agent_role || {}) },
-    };
-  } catch (err) {
-    process.stderr.write(`[eth-guardian] corrupt state, resetting: ${err.message}\n`);
-    return DEFAULT_STATE();
+  for (const dir of STATE_DIRS) {
+    const file = path.join(dir, "state.json");
+    if (!fs.existsSync(file)) continue;
+    try {
+      const raw = JSON.parse(fs.readFileSync(file, "utf-8"));
+      const def = DEFAULT_STATE();
+      activeStateFile = file;
+      return {
+        policy: { ...def.policy, ...(raw.policy || {}) },
+        pending: raw.pending || [],
+        history: raw.history || [],
+        agent_role: { ...def.agent_role, ...(raw.agent_role || {}) },
+      };
+    } catch (err) {
+      process.stderr.write(`[eth-guardian] corrupt state at ${file}, resetting: ${err.message}\n`);
+      activeStateFile = file;
+      return DEFAULT_STATE();
+    }
   }
+  return DEFAULT_STATE();
 }
 
 function saveState(state) {
-  fs.mkdirSync(STATE_DIR, { recursive: true });
-  const tmp = STATE_FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
-  fs.renameSync(tmp, STATE_FILE);
+  const errors = [];
+  for (const dir of STATE_DIRS) {
+    const file = path.join(dir, "state.json");
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const tmp = file + ".tmp";
+      fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+      fs.renameSync(tmp, file);
+      activeStateFile = file;
+      return;
+    } catch (err) {
+      errors.push(`${file}: ${err.message}`);
+    }
+  }
+  throw new Error(`Unable to persist ETH Guardian state. Tried: ${errors.join("; ")}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +308,14 @@ function selectorInfo(calldata) {
   const info = KNOWN_SELECTORS[sel];
   if (info) return { selector: sel, known: true, ...info };
   return { selector: sel, known: false, name: "unknown function", protocol: "Unknown", risk: "medium" };
+}
+
+function isUnlimitedApproval(calldata, selInfo) {
+  return (
+    selInfo.selector === "0x095ea7b3" &&
+    calldata.length > 10 &&
+    calldata.slice(-64).replace(/f/gi, "").length === 0
+  );
 }
 
 const CHAIN_NAMES = {
@@ -359,7 +388,11 @@ function toolCheckPolicy(args) {
   }
 
   // 6. High-risk selector escalation
-  if (selInfo.risk === "critical") {
+  if (isUnlimitedApproval(calldata, selInfo)) {
+    denials.push(
+      "Unlimited ERC-20 approval detected. This grants ongoing spending rights and is blocked by guardian policy."
+    );
+  } else if (selInfo.risk === "critical") {
     denials.push(
       `Selector ${selInfo.name} is classified as CRITICAL risk (${selInfo.protocol}). ` +
         "Blocked by guardian policy."
@@ -403,11 +436,7 @@ function toolExplainRisk(args) {
   let overallRisk = selInfo.risk || "low";
 
   // Detect unlimited approval (max uint256)
-  if (
-    selInfo.selector === "0x095ea7b3" &&
-    calldata.length > 10 &&
-    calldata.slice(-64).replace(/f/gi, "").length === 0
-  ) {
+  if (isUnlimitedApproval(calldata, selInfo)) {
     riskFlags.push("⚠️  Unlimited token approval detected — grants infinite spending rights.");
     overallRisk = "critical";
   }
@@ -565,7 +594,7 @@ function toolGetStatus(args) {
             ).toFixed(1) + "%"
           : "N/A",
     },
-    state_file: STATE_FILE,
+    state_file: activeStateFile,
     checked_at: now(),
   };
   if (include_history) {
@@ -603,7 +632,7 @@ function handleInvoke(params) {
 }
 
 function handleHealth() {
-  return { status: "ok", state_file: STATE_FILE, version: MANIFEST.version };
+  return { status: "ok", state_file: activeStateFile, version: MANIFEST.version };
 }
 
 const METHOD_DISPATCH = {
