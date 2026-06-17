@@ -1,6 +1,8 @@
 {
-  "tool_id": "tool-0xdave-eth-guardian-00000000",
+  "slug": "eth-guardian",
   "type": "node",
   "enabled": true,
-  "_comment": "Replace tool_id with the server-minted ID from anna.partners/executa after publishing. The placeholder above is for local anna-app dev only."
+  "name": "ETH Guardian",
+  "description": "Control & Safety Layer for autonomous Ethereum agents.",
+  "version": "1.0.0"
 }

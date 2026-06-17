@@ -14,7 +14,7 @@ metadata:
     role: skill
     requires:
       tools:
-        - tool-0xdave-eth-guardian-00000000
+        - tool-ilorahdavid126-eth-guardian-pxf3jej7
 ---
 
 # ETH Safety Guardian

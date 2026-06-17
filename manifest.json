@@ -59,7 +59,7 @@
     "csp_overrides": {
       "img-src":    ["'self'", "data:", "blob:"],
       "font-src":   ["'self'", "data:", "https://fonts.gstatic.com"],
-      "style-src":  ["'self'", "https://fonts.googleapis.com"],
+      "style-src": ["'self'"],   
       "script-src": ["'self'"]
     },
     "state_merge": "last_writer_wins"
