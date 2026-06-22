@@ -1,0 +1,16 @@
+{
+  "$schema": "anna-executas-lock/v1",
+  "host": "https://anna.partners",
+  "executas": {
+    "eth-guardian": {
+      "tool_id": "tool-ilorahdavid126-eth-guardian-pxf3jej7",
+      "path": "./executas/eth-guardian",
+      "source": "override"
+    },
+    "eth-safety": {
+      "tool_id": "skill-ilorahdavid126-eth-safety-hvjz43tr",
+      "path": "./skills/eth-safety",
+      "source": "working"
+    }
+  }
+}

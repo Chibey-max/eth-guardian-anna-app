@@ -1,0 +1,9 @@
+{
+  "$schema": "anna-executa-identity/v1",
+  "host": "https://anna.partners",
+  "executa_id": 1076,
+  "tool_id": "skill-ilorahdavid126-eth-safety-hvjz43tr",
+  "slug": "eth-safety",
+  "executa_type": "skill",
+  "first_published_at": "2026-06-22T16:56:10.299Z"
+}
