@@ -1,0 +1,16 @@
+{
+  "name": "tool-ilorahdavid126-eth-guardian-pxf3jej7",
+  "display_name": "ETH Guardian",
+  "version": "1.0.0",
+  "description": "Control & Safety Layer for autonomous Ethereum agents.",
+  "runtime": {
+    "binary": {
+      "entrypoint": {
+        "default": "bin/tool-ilorahdavid126-eth-guardian-pxf3jej7"
+      },
+      "permissions": {
+        "bin/tool-ilorahdavid126-eth-guardian-pxf3jej7": "0o755"
+      }
+    }
+  }
+}
