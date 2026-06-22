@@ -1,0 +1,123 @@
+name: Build ETH Guardian binaries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  EXECUTA_DIR: executas/eth-guardian
+  TOOL_ID: tool-ilorahdavid126-eth-guardian-pxf3jej7
+  VERSION: "1.0.0"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-14
+            pkg_target: node18-macos-arm64
+          - platform: darwin-x86_64
+            os: macos-15-intel
+            pkg_target: node18-macos-x64
+          - platform: linux-x86_64
+            os: ubuntu-latest
+            pkg_target: node18-linux-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install pkg
+        run: npm install -g pkg
+
+      - name: Build binary
+        working-directory: ${{ env.EXECUTA_DIR }}
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PKG_TARGET: ${{ matrix.pkg_target }}
+        run: |
+          mkdir -p dist-anna/staging-$PLATFORM/bin
+          pkg plugin.js \
+            --target $PKG_TARGET \
+            --output dist-anna/staging-$PLATFORM/bin/$TOOL_ID \
+            --compress GZip
+          chmod 0755 dist-anna/staging-$PLATFORM/bin/$TOOL_ID
+
+      - name: Write manifest.json
+        working-directory: ${{ env.EXECUTA_DIR }}
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          cat > dist-anna/staging-$PLATFORM/manifest.json << MANIFEST
+          {
+            "name": "$TOOL_ID",
+            "display_name": "ETH Guardian",
+            "version": "$VERSION",
+            "description": "Control & Safety Layer for autonomous Ethereum agents.",
+            "runtime": {
+              "binary": {
+                "entrypoint": {
+                  "default": "bin/$TOOL_ID"
+                },
+                "permissions": {
+                  "bin/$TOOL_ID": "0o755"
+                }
+              }
+            }
+          }
+          MANIFEST
+
+      - name: Create archive
+        working-directory: ${{ env.EXECUTA_DIR }}
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          cd dist-anna/staging-$PLATFORM
+          tar czf "../$TOOL_ID-$PLATFORM.tar.gz" .
+          cd ../..
+          # sha256
+          if command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "dist-anna/$TOOL_ID-$PLATFORM.tar.gz" > "dist-anna/$TOOL_ID-$PLATFORM.tar.gz.sha256"
+          else
+            sha256sum "dist-anna/$TOOL_ID-$PLATFORM.tar.gz" > "dist-anna/$TOOL_ID-$PLATFORM.tar.gz.sha256"
+          fi
+          echo "=== archive contents ==="
+          tar tzf "dist-anna/$TOOL_ID-$PLATFORM.tar.gz"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TOOL_ID }}-${{ matrix.platform }}
+          path: |
+            ${{ env.EXECUTA_DIR }}/dist-anna/${{ env.TOOL_ID }}-${{ matrix.platform }}.tar.gz
+            ${{ env.EXECUTA_DIR }}/dist-anna/${{ env.TOOL_ID }}-${{ matrix.platform }}.tar.gz.sha256
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List release assets
+        run: find release-assets -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: eth-guardian-v${{ env.VERSION }}
+          name: ETH Guardian v${{ env.VERSION }}
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: release-assets/*
