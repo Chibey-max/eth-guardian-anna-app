@@ -1,232 +1,237 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="ETH Guardian — Human-in-the-loop safety for autonomous Ethereum agents" />
     <title>ETH Guardian</title>
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body data-view="dashboard">
+
+    <!-- Scanline overlay -->
     <div class="scanlines" aria-hidden="true"></div>
+    <!-- Grid noise texture -->
     <div class="grid-bg" aria-hidden="true"></div>
 
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-brand">
-        <svg class="brand-icon" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
-          <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" fill="none" stroke="#00ff88" stroke-width="1.5"/>
-          <polygon points="16,7 24,11.5 24,20.5 16,25 8,20.5 8,11.5" fill="none" stroke="#00ff88" stroke-width="0.75" opacity="0.4"/>
-          <polygon points="16,10 21,13 21,19 16,22 11,19 11,13" fill="rgba(0,255,136,0.08)"/>
-          <path d="M16 11 L12 17 L16 15.5 L20 17 Z" fill="#00ff88"/>
-          <path d="M16 20.5 L12 17 L16 15.5 L20 17 Z" fill="#00ff88" opacity="0.5"/>
-        </svg>
-        <div class="brand-text">
+    <div class="app-shell">
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-brand">
+          <span class="brand-hex" aria-hidden="true">⬡</span>
           <span class="brand-name">ETH<span class="brand-accent">GUARDIAN</span></span>
-          <span class="brand-sub">Safety Layer · Anna App</span>
+          <span class="version-tag">v1.0.0</span>
         </div>
-      </div>
-      <div class="header-right">
         <div class="header-status">
-          <span class="conn-dot" id="conn-dot" title="Disconnected"></span>
-          <span class="conn-label" id="conn-label">Offline</span>
-        </div>
-        <div class="chain-pill" id="chain-pill">
-          <span class="chain-dot"></span>
-          <span id="chain-badge">—</span>
-        </div>
-      </div>
-    </header>
-
-    <!-- Tab nav -->
-    <nav class="tab-nav" role="tablist" aria-label="Views">
-      <button class="tab is-active" data-view="dashboard" role="tab">
-        <span class="tab-icon">◈</span> Dashboard
-      </button>
-      <button class="tab" data-view="demo" role="tab">
-        <span class="tab-icon">▶</span> Try It
-      </button>
-      <button class="tab" data-view="pending" role="tab">
-        <span class="tab-icon">◎</span> Queue
-        <span class="badge" id="pending-count" hidden>0</span>
-      </button>
-      <button class="tab" data-view="history" role="tab">
-        <span class="tab-icon">≡</span> History
-      </button>
-    </nav>
-
-    <!-- ── DASHBOARD ── -->
-    <section class="view is-active" id="view-dashboard" role="tabpanel">
-      <!-- Hero stat strip -->
-      <div class="stat-strip">
-        <div class="stat-cell">
-          <span class="stat-num" id="stat-total">—</span>
-          <span class="stat-lbl">Checks</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-cell">
-          <span class="stat-num risk-low" id="stat-allowed">—</span>
-          <span class="stat-lbl">Allowed</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-cell">
-          <span class="stat-num risk-high" id="stat-denied">—</span>
-          <span class="stat-lbl">Denied</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-cell">
-          <span class="stat-num risk-medium" id="stat-pending-val">—</span>
-          <span class="stat-lbl">Awaiting</span>
-        </div>
-      </div>
-
-      <!-- Two-column layout -->
-      <div class="dashboard-grid">
-        <!-- Check policy -->
-        <div class="panel">
-          <div class="panel-head">
-            <span class="panel-title">CHECK TRANSACTION</span>
-            <code class="panel-method">check_policy</code>
-          </div>
-          <label class="field-label">Target address</label>
-          <input class="field-input mono" id="check-to" type="text" placeholder="0x…" spellcheck="false" autocomplete="off" />
-          <div class="field-row-2">
-            <div>
-              <label class="field-label">Value (wei)</label>
-              <input class="field-input mono" id="check-value" type="text" placeholder="0" />
-            </div>
-            <div>
-              <label class="field-label">Calldata</label>
-              <input class="field-input mono" id="check-calldata" type="text" placeholder="0x…" spellcheck="false" />
-            </div>
-          </div>
-          <button class="btn btn-primary" id="btn-check">
-            <span class="btn-icon">⬡</span> Check Policy
+          <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+            <span class="theme-toggle-track">
+              <span class="theme-toggle-thumb">
+                <svg class="icon-moon" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <svg class="icon-sun" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+              </span>
+            </span>
           </button>
+          <span class="conn-pill" id="conn-pill">
+            <span class="conn-dot" id="conn-dot" title="Disconnected"></span>
+            <span class="conn-label" id="conn-label">OFFLINE</span>
+          </span>
+          <span class="chain-badge" id="chain-badge">—</span>
+        </div>
+      </header>
+
+      <!-- Nav tabs -->
+      <nav class="tab-nav" role="tablist" aria-label="Views">
+        <button class="tab is-active" data-view="dashboard" role="tab" aria-selected="true">Dashboard</button>
+        <button class="tab" data-view="pending" role="tab" aria-selected="false">
+          Pending
+          <span class="badge" id="pending-count" hidden>0</span>
+        </button>
+        <button class="tab" data-view="policy" role="tab" aria-selected="false">Policy</button>
+        <button class="tab" data-view="history" role="tab" aria-selected="false">History</button>
+      </nav>
+
+      <!-- ── DASHBOARD VIEW ── -->
+      <section class="view is-active" id="view-dashboard" role="tabpanel">
+        <!-- Stat row -->
+        <div class="stat-row">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-total" data-countup>0</div>
+            <div class="stat-label">Total checks</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value risk-high" id="stat-denied" data-countup>0</div>
+            <div class="stat-label">Denied</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value risk-low" id="stat-rate">0%</div>
+            <div class="stat-label">Allow rate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value risk-medium" id="stat-pending-val" data-countup>0</div>
+            <div class="stat-label">Awaiting</div>
+          </div>
+        </div>
+
+        <!-- Policy check panel -->
+        <div class="panel panel--enforce">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">⛨</span> Check transaction</span>
+            <span class="panel-tag">check_policy</span>
+          </div>
+          <p class="panel-hint">Validate a transaction against the on-chain policy before it runs. Returns an allow or deny verdict.</p>
+          <div class="field-row">
+            <label class="field-label" for="check-to">Target address</label>
+            <input class="field-input font-mono" id="check-to" type="text" placeholder="0x…" spellcheck="false" autocomplete="off" />
+          </div>
+          <div class="field-row field-row--half">
+            <div>
+              <label class="field-label" for="check-value">ETH value (wei)</label>
+              <input class="field-input font-mono" id="check-value" type="text" placeholder="0" />
+            </div>
+            <div>
+              <label class="field-label" for="check-calldata">Calldata</label>
+              <input class="field-input font-mono" id="check-calldata" type="text" placeholder="0x…" spellcheck="false" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-check">Check Policy</button>
+            <button class="btn btn-ghost btn-sm" id="btn-fill-allow" type="button">Load safe example</button>
+            <button class="btn btn-ghost btn-sm" id="btn-fill-deny" type="button">Load risky example</button>
+          </div>
           <div class="result-box" id="check-result" hidden></div>
         </div>
 
-        <!-- Explain risk -->
-        <div class="panel">
-          <div class="panel-head">
-            <span class="panel-title">EXPLAIN RISK</span>
-            <code class="panel-method">explain_risk</code>
+        <!-- Risk explainer panel -->
+        <div class="panel panel--advise">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">◎</span> Explain risk</span>
+            <span class="panel-tag">explain_risk</span>
           </div>
-          <label class="field-label">Target address</label>
-          <input class="field-input mono" id="explain-to" type="text" placeholder="0x…" spellcheck="false" />
-          <div class="field-row-2">
+          <p class="panel-hint">Translate raw calldata into a plain-language risk summary for a human reviewer.</p>
+          <div class="field-row">
+            <label class="field-label" for="explain-to">Target address</label>
+            <input class="field-input font-mono" id="explain-to" type="text" placeholder="0x…" spellcheck="false" />
+          </div>
+          <div class="field-row field-row--half">
             <div>
-              <label class="field-label">Calldata</label>
-              <input class="field-input mono" id="explain-calldata" type="text" placeholder="0x…" spellcheck="false" />
+              <label class="field-label" for="explain-calldata">Calldata</label>
+              <input class="field-input font-mono" id="explain-calldata" type="text" placeholder="0x…" spellcheck="false" />
             </div>
             <div>
-              <label class="field-label">Network</label>
+              <label class="field-label" for="explain-chain">Chain ID</label>
               <select class="field-input" id="explain-chain">
-                <option value="1">Mainnet</option>
-                <option value="11155111">Sepolia</option>
-                <option value="17000">Holesky</option>
-                <option value="8453">Base</option>
-                <option value="42161">Arbitrum</option>
-                <option value="5000">Mantle</option>
+                <option value="1">Mainnet (1)</option>
+                <option value="11155111">Sepolia (11155111)</option>
+                <option value="17000">Holesky (17000)</option>
+                <option value="8453">Base (8453)</option>
+                <option value="42161">Arbitrum (42161)</option>
+                <option value="5000">Mantle (5000)</option>
               </select>
             </div>
           </div>
-          <button class="btn btn-outline" id="btn-explain">
-            <span class="btn-icon">◈</span> Explain Risk
-          </button>
+          <button class="btn btn-amber" id="btn-explain">Explain Risk</button>
           <div class="result-box" id="explain-result" hidden></div>
         </div>
-      </div>
+      </section>
 
-      <!-- Submit for approval -->
-      <div class="panel panel-full">
-        <div class="panel-head">
-          <span class="panel-title">SUBMIT FOR APPROVAL</span>
-          <code class="panel-method">request_approval</code>
+      <!-- ── PENDING VIEW ── -->
+      <section class="view" id="view-pending" role="tabpanel" hidden>
+        <div class="panel panel--enforce">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">⧖</span> Approval queue</span>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-pending">Refresh</button>
+          </div>
+          <ul class="approval-list" id="approval-list">
+            <li class="empty-state">Queue is clear. Submit a transaction below to route it for human review.</li>
+          </ul>
         </div>
-        <div class="approval-form-grid">
-          <div>
-            <label class="field-label">Target address</label>
-            <input class="field-input mono" id="req-to" type="text" placeholder="0x…" spellcheck="false" />
+
+        <div class="panel panel--advise">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">⇡</span> Submit for approval</span>
+            <span class="panel-tag">request_approval</span>
           </div>
-          <div>
-            <label class="field-label">Risk level</label>
-            <select class="field-input" id="req-risk">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
+          <p class="panel-hint">Hand a transaction to a human. It waits in the queue until someone approves or denies it.</p>
+          <div class="field-row">
+            <label class="field-label" for="req-to">Target address</label>
+            <input class="field-input font-mono" id="req-to" type="text" placeholder="0x…" spellcheck="false" />
           </div>
-          <div class="approval-desc-field">
-            <label class="field-label">Description</label>
+          <div class="field-row">
+            <label class="field-label" for="req-desc">Description</label>
             <textarea class="field-input field-textarea" id="req-desc" maxlength="300" placeholder="What does this transaction do?"></textarea>
           </div>
+          <div class="field-row field-row--half">
+            <div>
+              <label class="field-label" for="req-calldata">Calldata</label>
+              <input class="field-input font-mono" id="req-calldata" type="text" placeholder="0x…" />
+            </div>
+            <div>
+              <label class="field-label" for="req-risk">Risk level</label>
+              <select class="field-input" id="req-risk">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-submit-approval">Submit for Approval</button>
+          <div class="result-box" id="approval-result" hidden></div>
         </div>
-        <button class="btn btn-ghost" id="btn-submit-approval">
-          <span class="btn-icon">↑</span> Submit for Approval
-        </button>
-        <div class="result-box" id="approval-result" hidden></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ── TRY IT (DEMO) ── -->
-    <section class="view" id="view-demo" role="tabpanel" hidden>
-      <div class="demo-intro">
-        <p class="demo-tagline">One click. See ETH Guardian in action.</p>
-        <p class="demo-sub">These are real EVM transactions. Click any card to run it through the guardian.</p>
-      </div>
-
-      <div class="demo-grid" id="demo-grid">
-        <!-- Cards injected by JS -->
-      </div>
-
-      <div class="panel panel-full" id="demo-result-panel" hidden>
-        <div class="panel-head">
-          <span class="panel-title" id="demo-result-title">RESULT</span>
-          <button class="btn-ghost-sm" id="btn-demo-clear">✕ Clear</button>
+      <!-- ── POLICY VIEW ── -->
+      <section class="view" id="view-policy" role="tabpanel" hidden>
+        <div class="panel panel--enforce">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">▦</span> Active policy</span>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-policy">Refresh</button>
+          </div>
+          <div class="policy-grid" id="policy-grid">
+            <div class="policy-item"><span class="policy-key">Max ETH (wei)</span><span class="policy-val font-mono" id="pol-max-eth">—</span></div>
+            <div class="policy-item"><span class="policy-key">Approval threshold (wei)</span><span class="policy-val font-mono" id="pol-thresh">—</span></div>
+            <div class="policy-item"><span class="policy-key">Whitelisted targets</span><span class="policy-val" id="pol-targets">—</span></div>
+            <div class="policy-item"><span class="policy-key">Whitelisted selectors</span><span class="policy-val" id="pol-selectors">—</span></div>
+            <div class="policy-item"><span class="policy-key">Allow unknown selectors</span><span class="policy-val" id="pol-unknown">—</span></div>
+            <div class="policy-item"><span class="policy-key">Timelock (seconds)</span><span class="policy-val" id="pol-timelock">—</span></div>
+            <div class="policy-item"><span class="policy-key">Policy updated</span><span class="policy-val" id="pol-updated">—</span></div>
+          </div>
         </div>
-        <div class="demo-result-body" id="demo-result-body"></div>
-      </div>
-    </section>
 
-    <!-- ── QUEUE ── -->
-    <section class="view" id="view-pending" role="tabpanel" hidden>
-      <div class="panel panel-full">
-        <div class="panel-head">
-          <span class="panel-title">APPROVAL QUEUE</span>
-          <button class="btn-ghost-sm" id="btn-refresh-pending">↻ Refresh</button>
+        <div class="panel panel--advise">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">◈</span> Agent role stats</span>
+          </div>
+          <div class="policy-grid" id="agent-grid">
+            <div class="policy-item"><span class="policy-key">Status</span><span class="policy-val" id="agent-status">—</span></div>
+            <div class="policy-item"><span class="policy-key">Total calls</span><span class="policy-val" id="agent-calls">—</span></div>
+            <div class="policy-item"><span class="policy-key">Denied calls</span><span class="policy-val risk-high" id="agent-denied">—</span></div>
+            <div class="policy-item"><span class="policy-key">Last active</span><span class="policy-val" id="agent-last">—</span></div>
+          </div>
         </div>
-        <ul class="item-list" id="approval-list">
-          <li class="empty-state">
-            <span class="empty-icon">◎</span>
-            <span>No pending approvals — the guardian is idle.</span>
-          </li>
-        </ul>
-      </div>
-    </section>
+      </section>
 
-    <!-- ── HISTORY ── -->
-    <section class="view" id="view-history" role="tabpanel" hidden>
-      <div class="panel panel-full">
-        <div class="panel-head">
-          <span class="panel-title">DECISION HISTORY</span>
-          <button class="btn-ghost-sm" id="btn-refresh-history">↻ Refresh</button>
+      <!-- ── HISTORY VIEW ── -->
+      <section class="view" id="view-history" role="tabpanel" hidden>
+        <div class="panel panel--enforce">
+          <div class="panel-title">
+            <span class="panel-label"><span class="panel-icon">≣</span> Decision history</span>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh-history">Refresh</button>
+          </div>
+          <ul class="history-list" id="history-list">
+            <li class="empty-state">No decisions yet. Checks and approvals will appear here as they happen.</li>
+          </ul>
         </div>
-        <ul class="item-list" id="history-list">
-          <li class="empty-state">
-            <span class="empty-icon">≡</span>
-            <span>No decisions recorded yet.</span>
-          </li>
-        </ul>
-      </div>
-    </section>
+      </section>
 
-    <!-- Toast container -->
+    </div>
+
+    <!-- Toast -->
     <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-    <!-- Anna SDK -->
+    <!-- Anna SDK tool IDs sidecar (injected at publish time) -->
     <script src="anna-tool-ids.js" defer onerror="window.__ANNA_TOOL_IDS__={}"></script>
     <script src="app.js" type="module"></script>
   </body>
